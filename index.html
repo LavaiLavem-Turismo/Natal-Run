@@ -508,6 +508,17 @@ async function submitScore(name, score, coins, dist) {
 /* ------------------------------------------------------------------ */
 let ac = null;
 let muted = lsGet("praia-run-muted") === "1";
+const backgroundMusic = new Audio("Take%202%20mp3%20(1).mp3");
+backgroundMusic.loop = true;
+backgroundMusic.preload = "auto";
+backgroundMusic.volume = 0.35;
+backgroundMusic.muted = muted;
+function playBackgroundMusic() {
+  if (muted) return;
+  const playback = backgroundMusic.play();
+  if (playback && typeof playback.catch === "function") playback.catch(() => {});
+}
+function pauseBackgroundMusic() { backgroundMusic.pause(); }
 function ensureAudio() {
   if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
   if (ac && ac.state === "suspended") { try { ac.resume(); } catch (e) {} }
@@ -537,6 +548,7 @@ function syncSoundBtn() {
   els.btnSound.classList.toggle("off", muted);
   els.btnSound.setAttribute("aria-pressed", muted ? "false" : "true");
   els.btnSound.setAttribute("aria-label", muted ? "Som desligado" : "Som ligado");
+  backgroundMusic.muted = muted;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1259,6 +1271,7 @@ async function holdScreen() {
 function releaseScreen() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 function toMenu() {
+  pauseBackgroundMusic();
   releaseScreen();
   S.mode = "menu"; S.speed = 7;
   clearField(); resetBirdIdle();
@@ -1277,16 +1290,18 @@ function startGame() {
   Object.keys(coachShown).forEach((k) => { delete coachShown[k]; });
   resetRun();
   S.mode = "play";
+  playBackgroundMusic();
   showPanel("hud");
   updateHud(true);
   showHint();
   holdScreen();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 }
-function pauseGame() { if (S.mode !== "play") return; S.mode = "pause"; hideHint(); els.pause.hidden = false; els.resume.focus(); }
-function resumeGame() { if (S.mode !== "pause") return; S.mode = "play"; els.pause.hidden = true; holdScreen(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+function pauseGame() { if (S.mode !== "play") return; S.mode = "pause"; pauseBackgroundMusic(); hideHint(); els.pause.hidden = false; els.resume.focus(); }
+function resumeGame() { if (S.mode !== "pause") return; S.mode = "play"; playBackgroundMusic(); els.pause.hidden = true; holdScreen(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
 function crash() {
   S.mode = "dying"; S.dieT = 0; S.vy = 7; S.onGround = false; S.sliding = false; S.queueSlide = false;
+  pauseBackgroundMusic();
   S.shake = reduceMotion ? 0 : 0.6;
   sfx.crash();
   buzz([60, 40, 90]);
@@ -1447,7 +1462,8 @@ els.resume.addEventListener("click", resumeGame);
 els.quit.addEventListener("click", toMenu);
 els.btnSound.addEventListener("click", () => {
   muted = !muted; lsSet("praia-run-muted", muted ? "1" : "0"); syncSoundBtn();
-  if (!muted) { ensureAudio(); sfx.lane(); }
+  if (muted) pauseBackgroundMusic();
+  else { ensureAudio(); sfx.lane(); if (S.mode === "play") playBackgroundMusic(); }
 });
 document.addEventListener("visibilitychange", () => { if (document.hidden && S.mode === "play") pauseGame(); });
 
